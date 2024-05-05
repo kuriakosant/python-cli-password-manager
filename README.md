@@ -48,28 +48,6 @@ Passwords are deleted after 10 incorrect login attempts.
 markdown
 Copy code
 
-### Step 7: Initialize a Git Repository and Push to GitHub
-
-1. **Initialize Git**:
-    ```bash
-    git init
-    ```
-
-2. **Add and commit files**:
-    ```bash
-    git add .
-    git commit -m "Initial commit for password manager project"
-    ```
-
-3. **Create a GitHub repository**:
-    - Go to GitHub and create a new repository (you can name it something like `password-manager`).
-    - Copy the repository URL.
-
-4. **Push to GitHub**:
-    ```bash
-    git remote add origin https://github.com/yourusername/password-manager.git
-    git push -u origin master
-    ```
 
 ### Step 8: Deploy as an Executable
 
