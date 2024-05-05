@@ -1,0 +1,12 @@
+# Ignore the virtual environment folder
+venv/
+
+# Ignore SQLite database
+data/passwords.db
+
+# Ignore PyInstaller build artifacts
+dist/
+build/
+*.spec
+
+pycache
