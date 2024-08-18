@@ -7,7 +7,6 @@ password_manager.db
 
 
 # Ignore PyInstaller build artifacts
-dist/
 build/
 *.spec
 
