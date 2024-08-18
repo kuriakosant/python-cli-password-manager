@@ -30,7 +30,7 @@ class DatabaseManager:
     def create_tables(self):
         cursor = self.conn.cursor()
         cursor.execute('''CREATE TABLE IF NOT EXISTS master_info (id INTEGER PRIMARY KEY, master_password_hash TEXT, failed_attempts INTEGER, encryption_key BLOB)''')
-        cursor.execute('''CREATE TABLE IF NOT EXISTS credentials (id INTEGER PRIMARY KEY, website TEXT, username TEXT, encrypted_password TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS credentials (id INTEGER PRIMARY KEY, website TEXT UNIQUE, username TEXT, encrypted_password TEXT, name TEXT, email TEXT, custom_field TEXT)''')
         self.conn.commit()
 
     def execute_query(self, query, params=()):
@@ -82,10 +82,14 @@ class PasswordManager:
         cipher_suite = Fernet(base64.urlsafe_b64encode(master_password_hash[:32]))
         return cipher_suite.decrypt(encrypted_key)
 
-    def add_password(self, website, username, password, key):
+    def add_password(self, website, username, password, key, name=None, email=None, custom_field=None):
+        if self.db_manager.fetch_one("SELECT 1 FROM credentials WHERE website = ?", (website,)):
+            print(f"Website '{website}' already exists. Please use a different name.")
+            return False
         encrypted_password = self.encrypt_password(password, key)
-        self.db_manager.execute_query("INSERT INTO credentials (website, username, encrypted_password) VALUES (?, ?, ?)",
-                                      (website, username, encrypted_password))
+        self.db_manager.execute_query("INSERT INTO credentials (website, username, encrypted_password, name, email, custom_field) VALUES (?, ?, ?, ?, ?, ?)",
+                                      (website, username, encrypted_password, name, email, custom_field))
+        return True
 
     def view_websites(self):
         return self.db_manager.fetch_all("SELECT website FROM credentials")
@@ -201,8 +205,11 @@ class CLI:
                     website = input("Website: ")
                     username = input("Username: ")
                     password = getpass.getpass("Password: ")
-                    self.password_manager.add_password(website, username, password, self.key)
-                    print("Password added successfully!")
+                    name = input("Name (optional): ")
+                    email = input("Email (optional): ")
+                    custom_field = input("Custom Field (optional): ")
+                    if self.password_manager.add_password(website, username, password, self.key, name, email, custom_field):
+                        print("Password added successfully!")
 
                     sub_choice = self.add_password_menu()
                     if sub_choice == "1":
