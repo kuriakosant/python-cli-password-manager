@@ -250,6 +250,22 @@ class CLI:
                         print(f"Name: {password_info['name'] if password_info['name'] else 'N/A'}")
                         print(f"Email: {password_info['email'] if password_info['email'] else 'N/A'}")
                         print(f"Custom Field: {password_info['custom_field'] if password_info['custom_field'] else 'N/A'}")
+
+                        # Handle the password view menu
+                        while True:
+                            view_choice = self.view_password_menu()
+                            if view_choice == "1":
+                                break  # Go back to the main menu
+                            elif view_choice == "2":
+                                master_password = getpass.getpass("Enter Master Password to confirm deletion: ")
+                                if self.password_manager.delete_password(website, self.key, master_password):
+                                    print("Password deleted successfully.")
+                                    break  # Exit the loop after deletion
+                                else:
+                                    print("Failed to delete password.")
+                            elif view_choice == "3":
+                                print("Exiting...")
+                                sys.exit(0)
                     else:
                         print("No password found for this website.")
 
@@ -304,7 +320,8 @@ class CLI:
                    VIEW PASSWORD MENU          
             ======================================
             1. Go back to Home Menu
-            2. Exit
+            2. Delete Password
+            3. Exit
         """)
         return input("Enter your choice: ")
 
