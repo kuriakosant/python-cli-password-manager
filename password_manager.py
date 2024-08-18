@@ -95,10 +95,16 @@ class PasswordManager:
         return self.db_manager.fetch_all("SELECT website FROM credentials")
 
     def view_password(self, website, key):
-        result = self.db_manager.fetch_one("SELECT encrypted_password FROM credentials WHERE website = ?", (website,))
+        result = self.db_manager.fetch_one("SELECT encrypted_password, name, email, custom_field FROM credentials WHERE website = ?", (website,))
         if result:
-            encrypted_password = result[0]
-            return self.decrypt_password(encrypted_password, key)
+            encrypted_password, name, email, custom_field = result
+            decrypted_password = self.decrypt_password(encrypted_password, key)
+            return {
+                "password": decrypted_password,
+                "name": name,
+                "email": email,
+                "custom_field": custom_field
+            }
         else:
             return None
 
@@ -240,9 +246,12 @@ class CLI:
             elif choice == "3":
                 while True:
                     website = input("Enter website: ")
-                    password = self.password_manager.view_password(website, self.key)
-                    if password:
-                        print(f"Password for {website}: {password}")
+                    password_info = self.password_manager.view_password(website, self.key)
+                    if password_info:
+                        print(f"Password for {website}: {password_info['password']}")
+                        print(f"Name: {password_info['name'] if password_info['name'] else 'N/A'}")
+                        print(f"Email: {password_info['email'] if password_info['email'] else 'N/A'}")
+                        print(f"Custom Field: {password_info['custom_field'] if password_info['custom_field'] else 'N/A'}")
                     else:
                         print("No password found for this website.")
 

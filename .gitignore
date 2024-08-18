@@ -5,6 +5,7 @@ venv/
 
 password_manager.db
 
+dist/password_manager.db
 
 # Ignore PyInstaller build artifacts
 build/
