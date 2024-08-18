@@ -209,22 +209,37 @@ class CLI:
                         sys.exit("Exiting...")
 
             elif choice == "2":
-                while True:
-                    websites = self.password_manager.view_websites()
-                    if websites:
-                        print("Stored websites:")
-                        for website in websites:
-                            print(f"- {website[0]}")
-                    else:
-                        print("No websites stored.")
+                websites = self.password_manager.view_websites()
+                if websites:
+                    print("Stored websites:")
+                    for website in websites:
+                        print(f"- {website[0]}")
+                else:
+                    print("No websites stored.")
 
-                    sub_choice = self.view_websites_menu()
-                    if sub_choice == "1":
-                        break
-                    elif sub_choice == "2":
-                        break
-                    elif sub_choice == "3":
-                        sys.exit("Exiting...")
+                sub_choice = self.view_websites_menu()
+                if sub_choice == "1":
+                    continue
+                elif sub_choice == "2":
+                    website = input("Enter website: ")
+                    password_info = self.password_manager.view_password(website, self.key)
+                    if password_info:
+                        print(f"Password for {website}: {password_info['password']}")
+                        print(f"Name: {password_info['name'] if password_info['name'] else 'N/A'}")
+                        print(f"Email: {password_info['email'] if password_info['email'] else 'N/A'}")
+                        print(f"Custom Field: {password_info['custom_field'] if password_info['custom_field'] else 'N/A'}")
+                    else:
+                        print("No password found for this website.")
+                elif sub_choice == "3":
+                    website = input("Enter the website name to delete: ")
+                    master_password = getpass.getpass("Enter Master Password to confirm deletion: ")
+                    if self.password_manager.delete_password(website, self.key, master_password):
+                        print("Password deleted successfully.")
+                    else:
+                        print("Failed to delete password.")
+                elif sub_choice == "4":
+                    print("Exiting...")
+                    break
 
             elif choice == "3":
                 while True:
@@ -280,6 +295,16 @@ class CLI:
             2. View Password for a Website
             3. Delete Password
             4. Exit
+        """)
+        return input("Enter your choice: ")
+
+    def view_password_menu(self):
+        print("""
+            ======================================
+                   VIEW PASSWORD MENU          
+            ======================================
+            1. Go back to Home Menu
+            2. Exit
         """)
         return input("Enter your choice: ")
 
