@@ -108,6 +108,20 @@ class PasswordManager:
         else:
             return None
 
+    def delete_password(self, website, key, master_password):
+        # Confirm the master password
+        result = self.db_manager.fetch_one("SELECT master_password_hash FROM master_info")
+        if result:
+            stored_hash = result[0]
+            if not self.check_master_password(master_password, stored_hash):
+                print("Incorrect master password. Deletion aborted.")
+                return False
+
+        # Delete the password
+        self.db_manager.execute_query("DELETE FROM credentials WHERE website = ?", (website,))
+        print(f"Password for '{website}' has been deleted.")
+        return True
+
 class CLI:
     def __init__(self):
         self.db_manager = DatabaseManager(DB_FILE)
@@ -151,9 +165,10 @@ class CLI:
             self.db_manager.execute_query("INSERT INTO master_info (master_password_hash, encryption_key, failed_attempts) VALUES (?, ?, 0)",
                                           (hashed_password, encrypted_key))
             print("Master password set successfully!")
-            sys.exit(0)
+            return True  # Indicate success
         else:
             print("Passwords do not match. Please try again.")
+            return False  # Indicate failure
 
     def cli_menu(self):
         print("""
@@ -163,40 +178,8 @@ class CLI:
             1. Add New Password
             2. View All Websites
             3. View Password for a Website
-            4. Exit
-        """)
-        return input("Enter your choice: ")
-
-    def add_password_menu(self):
-        print("""
-            ======================================
-                   PASSWORD MANAGER CLI          
-            ======================================
-            1. Add Another Password
-            2. View All Websites
-            3. View Password for a Website
-            4. Exit
-        """)
-        return input("Enter your choice: ")
-
-    def view_websites_menu(self):
-        print("""
-            ======================================
-                   PASSWORD MANAGER CLI          
-            ======================================
-            1. Go back to Home Menu
-            2. View Password for a Website
-            3. Exit
-        """)
-        return input("Enter your choice: ")
-
-    def view_password_menu(self):
-        print("""
-            ======================================
-                   PASSWORD MANAGER CLI          
-            ======================================
-            1. Go back to Home Menu
-            2. Exit
+            4. Delete Password
+            5. Exit
         """)
         return input("Enter your choice: ")
 
@@ -262,10 +245,43 @@ class CLI:
                         sys.exit("Exiting...")
 
             elif choice == "4":
+                website = input("Enter the website name to delete: ")
+                master_password = getpass.getpass("Enter Master Password to confirm deletion: ")
+                if self.password_manager.delete_password(website, self.key, master_password):
+                    print("Password deleted successfully.")
+                else:
+                    print("Failed to delete password.")
+
+            elif choice == "5":
                 print("Exiting...")
                 break
             else:
                 print("Invalid choice. Please try again.")
+
+    def add_password_menu(self):
+        print("""
+            ======================================
+                   ADD PASSWORD MENU          
+            ======================================
+            1. Add Another Password
+            2. View All Websites
+            3. View Password for a Website
+            4. Delete Password
+            5. Exit
+        """)
+        return input("Enter your choice: ")
+
+    def view_websites_menu(self):
+        print("""
+            ======================================
+                   VIEW WEBSITES MENU          
+            ======================================
+            1. Go back to Home Menu
+            2. View Password for a Website
+            3. Delete Password
+            4. Exit
+        """)
+        return input("Enter your choice: ")
 
 if __name__ == "__main__":
     cli = CLI()
