@@ -3,3 +3,4 @@ pyperclip
 bcrypt
 cryptography
 pyfiglet
+colorama
