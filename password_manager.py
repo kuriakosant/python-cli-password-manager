@@ -7,6 +7,7 @@ mail : kuriakosant2003@gmail.com
 github : https://github.com/kuriakosant
 linkedin : https://www.linkedin.com/in/kyriakos-antoniadis-288444326/
 '''
+
 import os
 import sqlite3
 import getpass
@@ -14,6 +15,10 @@ import bcrypt
 from cryptography.fernet import Fernet
 import base64
 import sys
+from colorama import Fore, Back, Style, init
+
+# Initialize Colorama
+init(autoreset=True)
 
 # Database file
 DB_FILE = "password_manager.db"
@@ -84,11 +89,12 @@ class PasswordManager:
 
     def add_password(self, website, username, password, key, name=None, email=None, custom_field=None):
         if self.db_manager.fetch_one("SELECT 1 FROM credentials WHERE website = ?", (website,)):
-            print(f"Website '{website}' already exists. Please use a different name.")
+            print(Fore.RED + f"Website '{website}' already exists. Please use a different name.")
             return False
         encrypted_password = self.encrypt_password(password, key)
         self.db_manager.execute_query("INSERT INTO credentials (website, username, encrypted_password, name, email, custom_field) VALUES (?, ?, ?, ?, ?, ?)",
                                       (website, username, encrypted_password, name, email, custom_field))
+        print(Fore.GREEN + "Password added successfully!")
         return True
 
     def view_websites(self):
@@ -114,17 +120,17 @@ class PasswordManager:
         if result:
             stored_hash = result[0]
             if not self.check_master_password(master_password, stored_hash):
-                print("Incorrect master password. Deletion aborted.")
+                print(Fore.RED + "Incorrect master password. Deletion aborted.")
                 return False
 
         # Check if the website exists
         if not self.db_manager.fetch_one("SELECT 1 FROM credentials WHERE website = ?", (website,)):
-            print(f"Website '{website}' does not exist. Deletion aborted.")
+            print(Fore.RED + f"Website '{website}' does not exist. Deletion aborted.")
             return False
 
         # Delete the password
         self.db_manager.execute_query("DELETE FROM credentials WHERE website = ?", (website,))
-        print(f"Password for '{website}' has been deleted.")
+        print(Fore.GREEN + f"Password for '{website}' has been deleted.")
         return True
 
 class CLI:
@@ -138,51 +144,51 @@ class CLI:
         if result:
             stored_hash, encrypted_key, failed_attempts = result
             if failed_attempts >= 10:
-                print("Too many failed attempts. Deleting all passwords...")
+                print(Fore.RED + "Too many failed attempts. Deleting all passwords...")
                 self.db_manager.execute_query("DELETE FROM credentials")
                 self.db_manager.execute_query("DELETE FROM master_info")  # Delete master password
                 os.remove(DB_FILE)  # Remove the database file
                 sys.exit(0)
 
             for attempt in range(10):
-                master_password = getpass.getpass("Enter Master Password: ")
+                master_password = getpass.getpass(Fore.YELLOW + "Enter Master Password: ")
                 if self.password_manager.check_master_password(master_password, stored_hash):
                     self.db_manager.execute_query("UPDATE master_info SET failed_attempts = 0")
-                    print("Login successful!")
+                    print(Fore.GREEN + "Login successful!")
                     self.key = self.password_manager.retrieve_encryption_key(encrypted_key, stored_hash)
                     return True
                 else:
                     self.db_manager.execute_query("UPDATE master_info SET failed_attempts = failed_attempts + 1")
-                    print(f"Incorrect password. Attempt {attempt + 1}/10")
+                    print(Fore.RED + f"Incorrect password. Attempt {attempt + 1}/10")
 
             # If the user fails 10 times, the following code will execute
-            print("Too many failed attempts. Deleting all passwords...")
+            print(Fore.RED + "Too many failed attempts. Deleting all passwords...")
             self.db_manager.execute_query("DELETE FROM credentials")
             self.db_manager.execute_query("DELETE FROM master_info")  # Delete master password
             os.remove(DB_FILE)  # Remove the database file
             sys.exit(0)
         else:
-            print("No master password set. Please create one.")
+            print(Fore.YELLOW + "No master password set. Please create one.")
             self.set_master_password()
         return False
 
     def set_master_password(self):
-        master_password = getpass.getpass("Create Master Password: ")
-        confirm_password = getpass.getpass("Confirm Master Password: ")
+        master_password = getpass.getpass(Fore.YELLOW + "Create Master Password: ")
+        confirm_password = getpass.getpass(Fore.YELLOW + "Confirm Master Password: ")
         if master_password == confirm_password:
             hashed_password = self.password_manager.hash_master_password(master_password)
             key = self.password_manager.generate_key()
             encrypted_key = self.password_manager.store_encryption_key(key, hashed_password)
             self.db_manager.execute_query("INSERT INTO master_info (master_password_hash, encryption_key, failed_attempts) VALUES (?, ?, 0)",
                                           (hashed_password, encrypted_key))
-            print("Master password set successfully!")
+            print(Fore.GREEN + "Master password set successfully!")
             return True  # Indicate success
         else:
-            print("Passwords do not match. Please try again.")
+            print(Fore.RED + "Passwords do not match. Please try again.")
             return False  # Indicate failure
 
     def cli_menu(self):
-        print("""
+        print(Fore.CYAN + """
             ======================================
                    PASSWORD MANAGER CLI          
             ======================================
@@ -192,7 +198,7 @@ class CLI:
             4. Delete Password
             5. Exit
         """)
-        return input("Enter your choice: ")
+        return input(Fore.YELLOW + "Enter your choice: " + Style.RESET_ALL)
 
     def main(self):
         if not self.login():
@@ -203,92 +209,91 @@ class CLI:
             choice = self.cli_menu()
             if choice == "1":
                 while True:
-                    website = input("Website: ")
-                    username = input("Username: ")
-                    password = getpass.getpass("Password: ")
-                    name = input("Name (optional): ")
-                    email = input("Email (optional): ")
-                    custom_field = input("Custom Field (optional): ")
+                    website = input(Fore.YELLOW + "Website: ")
+                    username = input(Fore.YELLOW + "Username: ")
+                    password = getpass.getpass(Fore.YELLOW + "Password: ")
+                    name = input(Fore.YELLOW + "Name (optional): ")
+                    email = input(Fore.YELLOW + "Email (optional): ")
+                    custom_field = input(Fore.YELLOW + "Custom Field (optional): ")
                     if self.password_manager.add_password(website, username, password, self.key, name, email, custom_field):
-                        print("Password added successfully!")
+                        print(Fore.GREEN + "Password added successfully!")
                         break  # Exit the loop after adding the password
 
-                # Redirect to view all websites after adding a password
                 continue  # This will go back to the main menu and allow the user to choose to view websites
 
             elif choice == "2":
                 websites = self.password_manager.view_websites()
                 if websites:
-                    print("Stored websites:")
+                    print(Fore.CYAN + "Stored websites:")
                     for website in websites:
-                        print(f"- {website[0]}")
+                        print(Fore.YELLOW + f"- {website[0]}")
                 else:
-                    print("No websites stored.")
+                    print(Fore.RED + "No websites stored.")
 
                 sub_choice = self.view_websites_menu()
                 if sub_choice == "1":
                     continue  # Go back to the main menu
                 elif sub_choice == "2":
-                    website = input("Enter website: ")
+                    website = input(Fore.YELLOW + "Enter website: ")
                     password_info = self.password_manager.view_password(website, self.key)
                     if password_info:
-                        print(f"Password for {website}: {password_info['password']}")
-                        print(f"Name: {password_info['name'] if password_info['name'] else 'N/A'}")
-                        print(f"Email: {password_info['email'] if password_info['email'] else 'N/A'}")
-                        print(f"Custom Field: {password_info['custom_field'] if password_info['custom_field'] else 'N/A'}")
+                        print(Fore.GREEN + f"Password for {website}: {password_info['password']}")
+                        print(Fore.GREEN + f"Name: {password_info['name'] if password_info['name'] else 'N/A'}")
+                        print(Fore.GREEN + f"Email: {password_info['email'] if password_info['email'] else 'N/A'}")
+                        print(Fore.GREEN + f"Custom Field: {password_info['custom_field'] if password_info['custom_field'] else 'N/A'}")
                     else:
-                        print("No password found for this website.")
+                        print(Fore.RED + "No password found for this website.")
 
                 elif sub_choice == "3":
-                    website = input("Enter the website name to delete: ")
+                    website = input(Fore.YELLOW + "Enter the website name to delete: ")
                     
                     # Check if the website exists before asking for the master password
                     if not self.password_manager.db_manager.fetch_one("SELECT 1 FROM credentials WHERE website = ?", (website,)):
-                        print(f"Website '{website}' does not exist. Deletion aborted.")
+                        print(Fore.RED + f"Website '{website}' does not exist. Deletion aborted.")
                         continue  # Go back to the main menu
 
-                    master_password = getpass.getpass("Enter Master Password to confirm deletion: ")
+                    master_password = getpass.getpass(Fore.YELLOW + "Enter Master Password to confirm deletion: ")
                     if self.password_manager.delete_password(website, self.key, master_password):
-                        print("Password deleted successfully.")
+                        print(Fore.GREEN + "Password deleted successfully.")
                     else:
-                        print("Failed to delete password.")
+                        print(Fore.RED + "Failed to delete password.")
 
                 elif sub_choice == "4":
-                    print("Exiting...")
+                    print(Fore.YELLOW + "Exiting...")
                     break
 
             elif choice == "3":
-                website = input("Enter website: ")
+                website = input(Fore.YELLOW + "Enter website: ")
                 password_info = self.password_manager.view_password(website, self.key)
                 if password_info:
-                    print(f"Password for {website}: {password_info['password']}")
-                    print(f"Name: {password_info['name'] if password_info['name'] else 'N/A'}")
-                    print(f"Email: {password_info['email'] if password_info['email'] else 'N/A'}")
-                    print(f"Custom Field: {password_info['custom_field'] if password_info['custom_field'] else 'N/A'}")
+                    print(Fore.GREEN + f"Password for {website}: {password_info['password']}")
+                    print(Fore.GREEN + f"Name: {password_info['name'] if password_info['name'] else 'N/A'}")
+                    print(Fore.GREEN + f"Email: {password_info['email'] if password_info['email'] else 'N/A'}")
+                    print(Fore.GREEN + f"Custom Field: {password_info['custom_field'] if password_info['custom_field'] else 'N/A'}")
                 else:
-                    print("No password found for this website.")
+                    print(Fore.RED + "No password found for this website.")
 
             elif choice == "4":
-                website = input("Enter the website name to delete: ")
+                website = input(Fore.YELLOW + "Enter the website name to delete: ")
                 # Check if the website exists before asking for the master password
                 if not self.password_manager.db_manager.fetch_one("SELECT 1 FROM credentials WHERE website = ?", (website,)):
-                    print(f"Website '{website}' does not exist. Deletion aborted.")
+                    print(Fore.RED + f"Website '{website}' does not exist. Deletion aborted.")
                     continue  # Go back to the main menu
 
-                master_password = getpass.getpass("Enter Master Password to confirm deletion: ")
+                master_password = getpass.getpass(Fore.YELLOW + "Enter Master Password to confirm deletion: ")
                 if self.password_manager.delete_password(website, self.key, master_password):
-                    print("Password deleted successfully.")
+                    print(Fore.GREEN + "Password deleted successfully.")
                 else:
-                    print("Failed to delete password.")
+                    print(Fore.RED + "Failed to delete password.")
 
             elif choice == "5":
-                print("Exiting...")
+                print(Fore.YELLOW + "Exiting...")
                 break
             else:
-                print("Invalid choice. Please try again.")
+                print(Fore.RED + "Invalid choice. Please try again.")
 
     def add_password_menu(self):
-        print("""
+        print(Fore.CYAN + """
             ======================================
                    ADD PASSWORD MENU          
             ======================================
@@ -298,10 +303,10 @@ class CLI:
             4. Delete Password
             5. Exit
         """)
-        return input("Enter your choice: ")
+        return input(Fore.YELLOW + "Enter your choice: " + Style.RESET_ALL)
 
     def view_websites_menu(self):
-        print("""
+        print(Fore.CYAN + """
             ======================================
                    VIEW WEBSITES MENU          
             ======================================
@@ -310,10 +315,10 @@ class CLI:
             3. Delete Password
             4. Exit
         """)
-        return input("Enter your choice: ")
+        return input(Fore.YELLOW + "Enter your choice: " + Style.RESET_ALL)
 
     def view_password_menu(self):
-        print("""
+        print(Fore.CYAN + """
             ======================================
                    VIEW PASSWORD MENU          
             ======================================
@@ -321,7 +326,7 @@ class CLI:
             2. Delete Password
             3. Exit
         """)
-        return input("Enter your choice: ")
+        return input(Fore.YELLOW + "Enter your choice: " + Style.RESET_ALL)
 
 if __name__ == "__main__":
     cli = CLI()
