@@ -211,14 +211,10 @@ class CLI:
                     custom_field = input("Custom Field (optional): ")
                     if self.password_manager.add_password(website, username, password, self.key, name, email, custom_field):
                         print("Password added successfully!")
+                        break  # Exit the loop after adding the password
 
-                    sub_choice = self.add_password_menu()
-                    if sub_choice == "1":
-                        continue
-                    elif sub_choice in ["2", "3"]:
-                        break
-                    elif sub_choice == "4":
-                        sys.exit("Exiting...")
+                # Redirect to view all websites after adding a password
+                continue  # This will go back to the main menu and allow the user to choose to view websites
 
             elif choice == "2":
                 websites = self.password_manager.view_websites()
