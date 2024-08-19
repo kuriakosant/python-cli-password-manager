@@ -231,7 +231,7 @@ class CLI:
 
                 sub_choice = self.view_websites_menu()
                 if sub_choice == "1":
-                    continue
+                    continue  # Go back to the main menu
                 elif sub_choice == "2":
                     website = input("Enter website: ")
                     password_info = self.password_manager.view_password(website, self.key)
@@ -242,13 +242,21 @@ class CLI:
                         print(f"Custom Field: {password_info['custom_field'] if password_info['custom_field'] else 'N/A'}")
                     else:
                         print("No password found for this website.")
+
                 elif sub_choice == "3":
                     website = input("Enter the website name to delete: ")
+                    
+                    # Check if the website exists before asking for the master password
+                    if not self.password_manager.db_manager.fetch_one("SELECT 1 FROM credentials WHERE website = ?", (website,)):
+                        print(f"Website '{website}' does not exist. Deletion aborted.")
+                        continue  # Go back to the main menu
+
                     master_password = getpass.getpass("Enter Master Password to confirm deletion: ")
                     if self.password_manager.delete_password(website, self.key, master_password):
                         print("Password deleted successfully.")
                     else:
                         print("Failed to delete password.")
+
                 elif sub_choice == "4":
                     print("Exiting...")
                     break
