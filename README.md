@@ -95,4 +95,4 @@ The **Python CLI Password Manager** is also available as a standalone executable
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for more details.
