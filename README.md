@@ -89,5 +89,10 @@ The **Python CLI Password Manager** is also available as a standalone executable
 
 - The first time you run the application, it will create a `password_manager.db` file in the same directory to store your passwords securely.
 - Ensure that you keep the `password_manager.db` file safe, as it contains your stored passwords.
+- If you input the master password incorrectly 10 times, the database will self-destruct. ( all your passwords will be gone forever )
 
 ---
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
