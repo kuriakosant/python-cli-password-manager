@@ -178,7 +178,7 @@ def set_master_password():
     
     conn.close()
 
-# Show CLI options once
+# Main CLI menu after login
 def cli_menu():
     print("""
         ======================================
@@ -192,6 +192,45 @@ def cli_menu():
     choice = input("Enter your choice: ")
     return choice
 
+# Submenu after adding a password
+def add_password_menu():
+    print("""
+        ======================================
+               PASSWORD MANAGER CLI          
+        ======================================
+        1. Add Another Password
+        2. View All Websites
+        3. View Password for a Website
+        4. Exit
+    """)
+    choice = input("Enter your choice: ")
+    return choice
+
+# Submenu after viewing websites
+def view_websites_menu():
+    print("""
+        ======================================
+               PASSWORD MANAGER CLI          
+        ======================================
+        1. Go back to Home Menu
+        2. View Password for a Website
+        3. Exit
+    """)
+    choice = input("Enter your choice: ")
+    return choice
+
+# Submenu after viewing password
+def view_password_menu():
+    print("""
+        ======================================
+               PASSWORD MANAGER CLI          
+        ======================================
+        1. Go back to Home Menu
+        2. Exit
+    """)
+    choice = input("Enter your choice: ")
+    return choice
+
 def main():
     create_tables()
     
@@ -200,34 +239,65 @@ def main():
     if not key:
         sys.exit("Exiting...")
     
-    # CLI Main Loop
+    # Main CLI Loop
     while True:
-        choice = cli_menu()  # Show menu only once
+        choice = cli_menu()
+        
         if choice == "1":
-            website = input("Website: ")
-            username = input("Username: ")
-            password = getpass.getpass("Password: ")
-            add_password(website, username, password, key)
-            print("Password added successfully!")
+            while True:
+                website = input("Website: ")
+                username = input("Username: ")
+                password = getpass.getpass("Password: ")
+                add_password(website, username, password, key)
+                print("Password added successfully!")
+                
+                sub_choice = add_password_menu()
+                if sub_choice == "1":
+                    continue  # Add another password
+                elif sub_choice == "2":
+                    break  # View all websites (handled later)
+                elif sub_choice == "3":
+                    break  # View password for a website (handled later)
+                elif sub_choice == "4":
+                    sys.exit("Exiting...")
+        
         elif choice == "2":
-            websites = view_websites()
-            if websites:
-                print("Stored websites:")
-                for website in websites:
-                    print(f"- {website[0]}")
-            else:
-                print("No websites stored.")
+            while True:
+                websites = view_websites()
+                if websites:
+                    print("Stored websites:")
+                    for website in websites:
+                        print(f"- {website[0]}")
+                else:
+                    print("No websites stored.")
+                
+                sub_choice = view_websites_menu()
+                if sub_choice == "1":
+                    break  # Go back to the main menu
+                elif sub_choice == "2":
+                    break  # View password for a website (handled later)
+                elif sub_choice == "3":
+                    sys.exit("Exiting...")
+        
         elif choice == "3":
-            website = input("Enter website: ")
-            master_password = getpass.getpass("Master Password: ")
-            view_password(website, master_password, key)
+            while True:
+                website = input("Enter website: ")
+                master_password = getpass.getpass("Master Password: ")
+                view_password(website, master_password, key)
+                
+                sub_choice = view_password_menu()
+                if sub_choice == "1":
+                    break  # Go back to the main menu
+                elif sub_choice == "2":
+                    sys.exit("Exiting...")
+        
         elif choice == "4":
             print("Exiting...")
             break
         else:
-            print("Invalid choice.")
-            continue  # Go back to the main menu if invalid choice
+            print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
     main()
+
 
