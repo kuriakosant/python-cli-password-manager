@@ -27,7 +27,7 @@ def connect_db():
 def create_tables():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS master_info (id INTEGER PRIMARY KEY, master_password_hash TEXT, failed_attempts INTEGER)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS master_info (id INTEGER PRIMARY KEY, master_password_hash TEXT, encryption_key BLOB, failed_attempts INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS credentials (id INTEGER PRIMARY KEY, website TEXT, username TEXT, encrypted_password TEXT)''')
     conn.commit()
     conn.close()
@@ -57,6 +57,18 @@ def hash_master_password(password):
 # Check if master password is correct
 def check_master_password(input_password, stored_hash):
     return bcrypt.checkpw(input_password.encode(), stored_hash)
+
+# Store the encryption key securely (encrypted using master password)
+def store_encryption_key(key, master_password_hash):
+    cipher_suite = Fernet(base64.urlsafe_b64encode(master_password_hash[:32]))
+    encrypted_key = cipher_suite.encrypt(key)
+    return encrypted_key
+
+# Retrieve the encryption key securely (decrypt using master password)
+def retrieve_encryption_key(encrypted_key, master_password_hash):
+    cipher_suite = Fernet(base64.urlsafe_b64encode(master_password_hash[:32]))
+    key = cipher_suite.decrypt(encrypted_key)
+    return key
 
 # Add new password to database
 def add_password(website, username, password, key):
@@ -96,11 +108,11 @@ def view_password(website, master_password, key):
 def login():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT master_password_hash, failed_attempts FROM master_info")
+    cursor.execute("SELECT master_password_hash, encryption_key, failed_attempts FROM master_info")
     result = cursor.fetchone()
     
     if result:
-        stored_hash, failed_attempts = result
+        stored_hash, encrypted_key, failed_attempts = result
         
         if failed_attempts >= 10:
             print("Too many failed attempts. Deleting all passwords...")
@@ -116,8 +128,10 @@ def login():
                 cursor.execute("UPDATE master_info SET failed_attempts = 0")
                 conn.commit()
                 print("Login successful!")
+                # Retrieve the encryption key securely
+                key = retrieve_encryption_key(encrypted_key, stored_hash)
                 conn.close()
-                return True
+                return key
             else:
                 cursor.execute("UPDATE master_info SET failed_attempts = failed_attempts + 1")
                 conn.commit()
@@ -129,7 +143,7 @@ def login():
         print("No master password set. Please create one.")
         set_master_password()
     conn.close()
-    return False
+    return None
 
 # Set the master password for the first time
 def set_master_password():
@@ -140,7 +154,9 @@ def set_master_password():
     
     if master_password == confirm_password:
         hashed_password = hash_master_password(master_password)
-        cursor.execute("INSERT INTO master_info (master_password_hash, failed_attempts) VALUES (?, 0)", (hashed_password,))
+        key = generate_key()  # Generate Fernet encryption key
+        encrypted_key = store_encryption_key(key, hashed_password)  # Encrypt Fernet key using master password hash
+        cursor.execute("INSERT INTO master_info (master_password_hash, encryption_key, failed_attempts) VALUES (?, ?, 0)", (hashed_password, encrypted_key))
         conn.commit()
         print("Master password set successfully!")
         conn.close()
@@ -150,7 +166,7 @@ def set_master_password():
     
     conn.close()
 
-# Show CLI options
+# Show CLI options once
 def cli_menu():
     print("""
         ======================================
@@ -168,17 +184,17 @@ def main():
     create_tables()
     
     # Login or set master password
-    if not login():
+    key = login()
+    if not key:
         sys.exit("Exiting...")
     
     # CLI Main Loop
     while True:
-        choice = cli_menu()
+        choice = cli_menu()  # Show menu only once
         if choice == "1":
             website = input("Website: ")
             username = input("Username: ")
             password = getpass.getpass("Password: ")
-            key = generate_key()  # Fix the Fernet key issue
             add_password(website, username, password, key)
             print("Password added successfully!")
         elif choice == "2":
@@ -192,13 +208,13 @@ def main():
         elif choice == "3":
             website = input("Enter website: ")
             master_password = getpass.getpass("Master Password: ")
-            key = generate_key()  # Fix the Fernet key issue
             view_password(website, master_password, key)
         elif choice == "4":
             print("Exiting...")
             break
         else:
             print("Invalid choice.")
+            continue  # Go back to the main menu if invalid choice
 
 if __name__ == "__main__":
     main()
