@@ -10,16 +10,17 @@ github : https://github.com/kuriakosant
 linkedin : https://www.linkedin.com/in/kyriakos-antoniadis-288444326/
 
 '''
-
-
-
-
 import bcrypt
 import sqlite3
 import os
 from cryptography.fernet import Fernet
 from getpass import getpass
 import pyfiglet
+import pyperclip
+import threading
+import random
+import secrets
+
 
 # Initialize database
 def init_db():
@@ -59,11 +60,18 @@ def is_master_password_set():
     conn.close()
     return result is not None
 
+
 # Add a new password entry
 def add_password(master_key):
     service = input("Enter service name: ")
     username = input("Enter username: ")
-    password = getpass("Enter password: ")
+
+    # Generate or enter password
+    gen_choice = input("Generate a strong password? (y/n): ").lower()
+    if gen_choice == 'y':
+        password = generate_password()
+    else:
+        password = getpass("Enter password: ")
 
     # Encrypt password
     fernet = Fernet(master_key)
@@ -76,7 +84,7 @@ def add_password(master_key):
     conn.commit()
     conn.close()
 
-# View stored passwords
+# View stored passwords (no passwords displayed on screen)
 def view_passwords(master_key):
     conn = sqlite3.connect('passwords.db')
     cursor = conn.cursor()
@@ -88,11 +96,22 @@ def view_passwords(master_key):
     for row in rows:
         service, username, encrypted_password = row
         password = fernet.decrypt(encrypted_password).decode('utf-8')
-        print(f"Service: {service}, Username: {username}, Password: {password}")
+        print(f"Service: {service}, Username: {username} (Password copied to clipboard)")
+        copy_to_clipboard(password)
 
     conn.close()
 
-# Handle login attempts
+# Copy password to clipboard and clear after 10 seconds
+def copy_to_clipboard(password):
+    pyperclip.copy(password)
+    print("Password copied to clipboard. It will be cleared in 10 seconds.")
+    timer = threading.Timer(10.0, clear_clipboard)
+    timer.start()
+
+def clear_clipboard():
+    pyperclip.copy("")
+
+# Handle login attempts (with master password)
 def login():
     failed_attempts = 0
 
@@ -121,13 +140,39 @@ def show_ascii_art():
     ascii_art = pyfiglet.figlet_format("Lock")
     print(ascii_art)
 
+# Generate a strong password
+def generate_password(size=14):
+    digits = '0123456789'
+    locase_chars = 'abcdefghijklmnopqrstuvwxyz'
+    upcase_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    symbols = '@#$%=:?./|~>*&'
+
+    pass_chars = digits + locase_chars + upcase_chars + symbols
+    password = ''.join(secrets.choice(pass_chars) for _ in range(size))
+
+    print("Generated password:", password)
+    return password
+
+# Implement session lock
+def session_lock(master_password):
+    print("\nSession Locked. Please re-enter master password to continue.")
+    while True:
+        entered_password = getpass("Enter master password: ")
+        if entered_password == master_password:
+            print("Session Unlocked.")
+            break
+        else:
+            print("Incorrect password.")
+
 # Main program loop
 def main():
     init_db()
 
     if not is_master_password_set():
         set_master_password()
-    
+
+    firebase_login()
+
     master_password = login()
 
     # Generate key for encryption
@@ -136,8 +181,9 @@ def main():
     while True:
         show_ascii_art()
         print("1. Add password")
-        print("2. View passwords")
-        print("3. Exit")
+        print("2. View passwords (copied to clipboard)")
+        print("3. Lock session")
+        print("4. Exit")
 
         choice = input("Choose an option: ")
         
@@ -146,6 +192,8 @@ def main():
         elif choice == "2":
             view_passwords(master_key)
         elif choice == "3":
+            session_lock(master_password)
+        elif choice == "4":
             break
         else:
             print("Invalid option.")
