@@ -1,11 +1,53 @@
-# Password Manager CLI
 
-A secure command-line password manager built with Python, SQLite, and bcrypt.
+# Python CLI Password Manager
 
-## Features
-- Master password protection
-- Store and encrypt passwords
-- View, edit, and delete passwords
-- Automatically deletes passwords after 10 failed login attempts
+## Overview
 
-in progress
+The **Python CLI Password Manager** is a command-line tool designed to securely manage passwords. Users can store, view, edit, and delete passwords for various services in a local SQLite database. All passwords are encrypted using AES encryption (`Fernet` from the `cryptography` library), and the master password is hashed using `bcrypt` for added security. After 10 incorrect master password attempts, all stored passwords will be deleted to prevent unauthorized access.
+
+### Key Features:
+
+-   **Master Password**: Required for accessing the password manager.
+-   **Password Encryption**: Passwords are encrypted using `Fernet` and stored securely in an SQLite database.
+-   **Add/View/Delete Passwords**: Easily manage passwords for different services.
+-   **Session Security**: Each time you want to view a password, you must re-enter the master password.
+-   **Failed Attempts Protection**: All passwords are deleted after 10 incorrect master password attempts.
+
+----------
+
+## Installation
+
+Follow these steps to install and run the password manager.
+
+### 1. Clone the Repository
+
+First, clone the repository from GitHub to your local machine:
+
+`git clone https://github.com/kuriakosant/python-cli-password-manager` 
+
+### 2. Set Up a Virtual Environment (Optional but Recommended)
+
+It’s recommended to create a virtual environment to isolate dependencies:
+
+`python3 -m venv venv`
+
+##  3. Activate the virtual environment (Linux/macOS)
+`source venv/bin/activate`
+
+# Activate the virtual environment (Windows)
+`.\venv\Scripts\activate` 
+
+### 3. Install Dependencies
+
+All required dependencies are listed in the `requirements.txt` file. Install them using `pip`:
+
+`pip install -r requirements.txt` 
+
+This will install:
+
+-   **bcrypt**: For secure password hashing.
+-   **cryptography**: For AES encryption and decryption (using `Fernet`).
+-   **pyfiglet**: For displaying ASCII art in the terminal.
+
+----------
+
