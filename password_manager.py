@@ -1,3 +1,12 @@
+'''
+    PYTHON SQL PASSWORD MANAGER
+               CLI
+             V-1.0.0
+Author : KYRIAKOS ANTONIADIS
+mail : kuriakosant2003@gmail.com    
+github : https://github.com/kuriakosant
+linkedin : https://www.linkedin.com/in/kyriakos-antoniadis-288444326/
+'''
 import os
 import sqlite3
 import getpass
@@ -5,6 +14,7 @@ import bcrypt
 from cryptography.fernet import Fernet
 import base64
 import sys
+
 
 # Database file
 DB_FILE = "password_manager.db"
@@ -22,10 +32,9 @@ def create_tables():
     conn.commit()
     conn.close()
 
-# Generate encryption key using Fernet
+# Generate encryption key using Fernet (proper 32 byte key)
 def generate_key():
-    key = base64.urlsafe_b64encode(Fernet.generate_key())
-    return key
+    return Fernet.generate_key()
 
 # Encrypt password
 def encrypt_password(password, key):
@@ -74,13 +83,14 @@ def view_password(website, master_password, key):
     cursor = conn.cursor()
     cursor.execute("SELECT encrypted_password FROM credentials WHERE website = ?", (website,))
     result = cursor.fetchone()
+    conn.close()
+    
     if result:
         encrypted_password = result[0]
         decrypted_password = decrypt_password(encrypted_password, key)
         print(f"Password for {website}: {decrypted_password}")
     else:
         print("No password found for this website.")
-    conn.close()
 
 # Handle the login process
 def login():
@@ -133,6 +143,8 @@ def set_master_password():
         cursor.execute("INSERT INTO master_info (master_password_hash, failed_attempts) VALUES (?, 0)", (hashed_password,))
         conn.commit()
         print("Master password set successfully!")
+        conn.close()
+        sys.exit(0)  # Exit after setting the master password
     else:
         print("Passwords do not match. Please try again.")
     
@@ -154,6 +166,7 @@ def cli_menu():
 
 def main():
     create_tables()
+    
     # Login or set master password
     if not login():
         sys.exit("Exiting...")
@@ -165,17 +178,21 @@ def main():
             website = input("Website: ")
             username = input("Username: ")
             password = getpass.getpass("Password: ")
-            key = generate_key()
+            key = generate_key()  # Fix the Fernet key issue
             add_password(website, username, password, key)
             print("Password added successfully!")
         elif choice == "2":
             websites = view_websites()
-            for website in websites:
-                print(website[0])
+            if websites:
+                print("Stored websites:")
+                for website in websites:
+                    print(f"- {website[0]}")
+            else:
+                print("No websites stored.")
         elif choice == "3":
             website = input("Enter website: ")
             master_password = getpass.getpass("Master Password: ")
-            key = generate_key()
+            key = generate_key()  # Fix the Fernet key issue
             view_password(website, master_password, key)
         elif choice == "4":
             print("Exiting...")
