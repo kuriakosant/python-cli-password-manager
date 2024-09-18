@@ -23,12 +23,24 @@ DB_FILE = "password_manager.db"
 def connect_db():
     return sqlite3.connect(DB_FILE)
 
-# Create necessary tables
+# Create necessary tables and add missing columns
 def create_tables():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS master_info (id INTEGER PRIMARY KEY, master_password_hash TEXT, encryption_key BLOB, failed_attempts INTEGER)''')
+
+    # Create tables if they don't exist
+    cursor.execute('''CREATE TABLE IF NOT EXISTS master_info (id INTEGER PRIMARY KEY, master_password_hash TEXT, failed_attempts INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS credentials (id INTEGER PRIMARY KEY, website TEXT, username TEXT, encrypted_password TEXT)''')
+
+    # Check if the encryption_key column exists, and add it if missing
+    cursor.execute("PRAGMA table_info(master_info);")
+    columns = [col[1] for col in cursor.fetchall()]
+    
+    # Add encryption_key column if it's missing
+    if 'encryption_key' not in columns:
+        print("Adding missing 'encryption_key' column to 'master_info' table.")
+        cursor.execute("ALTER TABLE master_info ADD COLUMN encryption_key BLOB")
+
     conn.commit()
     conn.close()
 
@@ -218,3 +230,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
