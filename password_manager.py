@@ -1,202 +1,187 @@
-'''
-
-    PYTHON SQL PASSWORD MANAGER
-               CLI
-             V-1.0.0
-
-Author : KYRIAKOS ANTONIADIS
-mail : kuriakosant2003@gmail.com    
-github : https://github.com/kuriakosant
-linkedin : https://www.linkedin.com/in/kyriakos-antoniadis-288444326/
-
-'''
-import bcrypt
-import sqlite3
 import os
+import sqlite3
+import getpass
+import bcrypt
 from cryptography.fernet import Fernet
-from getpass import getpass
-import pyfiglet
-import pyperclip
-import threading
-import random
-import secrets
+import base64
+import sys
 
+# Database file
+DB_FILE = "password_manager.db"
 
-# Initialize database
-def init_db():
-    conn = sqlite3.connect('passwords.db')
+# Connect to SQLite database
+def connect_db():
+    return sqlite3.connect(DB_FILE)
+
+# Create necessary tables
+def create_tables():
+    conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS passwords 
-                      (id INTEGER PRIMARY KEY, service TEXT, username TEXT, password BLOB)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS master_password
-                      (id INTEGER PRIMARY KEY, password_hash BLOB)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS master_info (id INTEGER PRIMARY KEY, master_password_hash TEXT, failed_attempts INTEGER)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS credentials (id INTEGER PRIMARY KEY, website TEXT, username TEXT, encrypted_password TEXT)''')
     conn.commit()
     conn.close()
 
-# Hash the master password
-def hash_password(password):
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+# Generate encryption key using Fernet
+def generate_key():
+    key = base64.urlsafe_b64encode(Fernet.generate_key())
+    return key
 
-# Check master password
-def check_password(stored_hash, entered_password):
-    return bcrypt.checkpw(entered_password.encode('utf-8'), stored_hash)
+# Encrypt password
+def encrypt_password(password, key):
+    cipher_suite = Fernet(key)
+    encrypted_password = cipher_suite.encrypt(password.encode())
+    return encrypted_password
 
-# Store master password in DB
-def set_master_password():
-    password = getpass("Set your master password: ")
-    hashed_password = hash_password(password)
-    conn = sqlite3.connect('passwords.db')
+# Decrypt password
+def decrypt_password(encrypted_password, key):
+    cipher_suite = Fernet(key)
+    decrypted_password = cipher_suite.decrypt(encrypted_password).decode()
+    return decrypted_password
+
+# Hash master password using bcrypt
+def hash_master_password(password):
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password.encode(), salt)
+    return hashed_password
+
+# Check if master password is correct
+def check_master_password(input_password, stored_hash):
+    return bcrypt.checkpw(input_password.encode(), stored_hash)
+
+# Add new password to database
+def add_password(website, username, password, key):
+    conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO master_password (password_hash) VALUES (?)", (hashed_password,))
+    encrypted_password = encrypt_password(password, key)
+    cursor.execute("INSERT INTO credentials (website, username, encrypted_password) VALUES (?, ?, ?)",
+                   (website, username, encrypted_password))
     conn.commit()
     conn.close()
 
-# Check if master password is set
-def is_master_password_set():
-    conn = sqlite3.connect('passwords.db')
+# View stored websites
+def view_websites():
+    conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM master_password")
+    cursor.execute("SELECT website FROM credentials")
+    websites = cursor.fetchall()
+    conn.close()
+    return websites
+
+# View password for a website
+def view_password(website, master_password, key):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT encrypted_password FROM credentials WHERE website = ?", (website,))
     result = cursor.fetchone()
-    conn.close()
-    return result is not None
-
-
-# Add a new password entry
-def add_password(master_key):
-    service = input("Enter service name: ")
-    username = input("Enter username: ")
-
-    # Generate or enter password
-    gen_choice = input("Generate a strong password? (y/n): ").lower()
-    if gen_choice == 'y':
-        password = generate_password()
+    if result:
+        encrypted_password = result[0]
+        decrypted_password = decrypt_password(encrypted_password, key)
+        print(f"Password for {website}: {decrypted_password}")
     else:
-        password = getpass("Enter password: ")
-
-    # Encrypt password
-    fernet = Fernet(master_key)
-    encrypted_password = fernet.encrypt(password.encode('utf-8'))
-
-    conn = sqlite3.connect('passwords.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO passwords (service, username, password) VALUES (?, ?, ?)", 
-                   (service, username, encrypted_password))
-    conn.commit()
+        print("No password found for this website.")
     conn.close()
 
-# View stored passwords (no passwords displayed on screen)
-def view_passwords(master_key):
-    conn = sqlite3.connect('passwords.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT service, username, password FROM passwords")
-    rows = cursor.fetchall()
-
-    fernet = Fernet(master_key)
-    
-    for row in rows:
-        service, username, encrypted_password = row
-        password = fernet.decrypt(encrypted_password).decode('utf-8')
-        print(f"Service: {service}, Username: {username} (Password copied to clipboard)")
-        copy_to_clipboard(password)
-
-    conn.close()
-
-# Copy password to clipboard and clear after 10 seconds
-def copy_to_clipboard(password):
-    pyperclip.copy(password)
-    print("Password copied to clipboard. It will be cleared in 10 seconds.")
-    timer = threading.Timer(10.0, clear_clipboard)
-    timer.start()
-
-def clear_clipboard():
-    pyperclip.copy("")
-
-# Handle login attempts (with master password)
+# Handle the login process
 def login():
-    failed_attempts = 0
-
-    conn = sqlite3.connect('passwords.db')
+    conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT password_hash FROM master_password")
-    stored_password_hash = cursor.fetchone()[0]
+    cursor.execute("SELECT master_password_hash, failed_attempts FROM master_info")
+    result = cursor.fetchone()
     
-    while failed_attempts < 10:
-        entered_password = getpass("Enter master password: ")
-        if check_password(stored_password_hash, entered_password):
-            return entered_password
-        else:
-            failed_attempts += 1
-            print(f"Incorrect password. Attempts left: {10 - failed_attempts}")
-
-    # Delete all stored passwords after 10 failed attempts
-    cursor.execute("DELETE FROM passwords")
-    conn.commit()
-    conn.close()
-    print("All passwords deleted due to too many incorrect attempts.")
-    exit()
-
-# Generate ASCII art lock
-def show_ascii_art():
-    ascii_art = pyfiglet.figlet_format("Lock")
-    print(ascii_art)
-
-# Generate a strong password
-def generate_password(size=14):
-    digits = '0123456789'
-    locase_chars = 'abcdefghijklmnopqrstuvwxyz'
-    upcase_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    symbols = '@#$%=:?./|~>*&'
-
-    pass_chars = digits + locase_chars + upcase_chars + symbols
-    password = ''.join(secrets.choice(pass_chars) for _ in range(size))
-
-    print("Generated password:", password)
-    return password
-
-# Implement session lock
-def session_lock(master_password):
-    print("\nSession Locked. Please re-enter master password to continue.")
-    while True:
-        entered_password = getpass("Enter master password: ")
-        if entered_password == master_password:
-            print("Session Unlocked.")
-            break
-        else:
-            print("Incorrect password.")
-
-# Main program loop
-def main():
-    init_db()
-
-    if not is_master_password_set():
-        set_master_password()
-
-    firebase_login()
-
-    master_password = login()
-
-    # Generate key for encryption
-    master_key = Fernet.generate_key()
-
-    while True:
-        show_ascii_art()
-        print("1. Add password")
-        print("2. View passwords (copied to clipboard)")
-        print("3. Lock session")
-        print("4. Exit")
-
-        choice = input("Choose an option: ")
+    if result:
+        stored_hash, failed_attempts = result
         
+        if failed_attempts >= 10:
+            print("Too many failed attempts. Deleting all passwords...")
+            cursor.execute("DELETE FROM credentials")
+            cursor.execute("UPDATE master_info SET failed_attempts = 0")
+            conn.commit()
+            conn.close()
+            sys.exit(0)
+        
+        for attempt in range(10):
+            master_password = getpass.getpass("Enter Master Password: ")
+            if check_master_password(master_password, stored_hash):
+                cursor.execute("UPDATE master_info SET failed_attempts = 0")
+                conn.commit()
+                print("Login successful!")
+                conn.close()
+                return True
+            else:
+                cursor.execute("UPDATE master_info SET failed_attempts = failed_attempts + 1")
+                conn.commit()
+                print(f"Incorrect password. Attempt {attempt + 1}/10")
+        
+        conn.close()
+        sys.exit("Too many failed attempts. Exiting...")
+    else:
+        print("No master password set. Please create one.")
+        set_master_password()
+    conn.close()
+    return False
+
+# Set the master password for the first time
+def set_master_password():
+    conn = connect_db()
+    cursor = conn.cursor()
+    master_password = getpass.getpass("Create Master Password: ")
+    confirm_password = getpass.getpass("Confirm Master Password: ")
+    
+    if master_password == confirm_password:
+        hashed_password = hash_master_password(master_password)
+        cursor.execute("INSERT INTO master_info (master_password_hash, failed_attempts) VALUES (?, 0)", (hashed_password,))
+        conn.commit()
+        print("Master password set successfully!")
+    else:
+        print("Passwords do not match. Please try again.")
+    
+    conn.close()
+
+# Show CLI options
+def cli_menu():
+    print("""
+        ======================================
+               PASSWORD MANAGER CLI          
+        ======================================
+        1. Add New Password
+        2. View All Websites
+        3. View Password for a Website
+        4. Exit
+    """)
+    choice = input("Enter your choice: ")
+    return choice
+
+def main():
+    create_tables()
+    # Login or set master password
+    if not login():
+        sys.exit("Exiting...")
+    
+    # CLI Main Loop
+    while True:
+        choice = cli_menu()
         if choice == "1":
-            add_password(master_key)
+            website = input("Website: ")
+            username = input("Username: ")
+            password = getpass.getpass("Password: ")
+            key = generate_key()
+            add_password(website, username, password, key)
+            print("Password added successfully!")
         elif choice == "2":
-            view_passwords(master_key)
+            websites = view_websites()
+            for website in websites:
+                print(website[0])
         elif choice == "3":
-            session_lock(master_password)
+            website = input("Enter website: ")
+            master_password = getpass.getpass("Master Password: ")
+            key = generate_key()
+            view_password(website, master_password, key)
         elif choice == "4":
+            print("Exiting...")
             break
         else:
-            print("Invalid option.")
+            print("Invalid choice.")
 
 if __name__ == "__main__":
     main()

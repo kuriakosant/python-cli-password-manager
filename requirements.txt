@@ -1,10 +1,5 @@
-bcrypt==3.2.0
-cryptography==41.0.1
-pyfiglet==0.8.post1
 setuptools
-getpass 
-pyfiglet
 pyperclip
-threading
-random
-secrets
+bcrypt
+cryptography
+pyfiglet
